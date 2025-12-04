@@ -1,0 +1,53 @@
+spring:
+  application:
+    name: kotlin-board-example
+
+  # H2 Database 설정
+  datasource:
+    url: jdbc:h2:mem:boarddb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  # H2 Console 설정 (개발 편의성)
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  # JPA 설정
+  jpa:
+    hibernate:
+      ddl-auto: create  # 애플리케이션 시작 시 테이블 자동 생성 (개발용)
+    show-sql: true  # SQL 로그 출력
+    properties:
+      hibernate:
+        format_sql: true  # SQL 포맷팅
+        use_sql_comments: true  # JPQL을 SQL로 변환한 주석 표시
+    open-in-view: false  # OSIV 비활성화 (성능 최적화)
+    defer-datasource-initialization: true  # data.sql이 schema 생성 후 실행되도록 설정
+
+  # Jackson 설정 (JSON 직렬화/역직렬화)
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false  # LocalDateTime을 ISO-8601 형식으로 출력
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health  # 혹은 "*" 로 전체 허용
+  endpoint:
+    health:
+      show-details: always # 상세 정보 보기 (선택사항)
+
+# 서버 설정
+server:
+  port: 8080
+
+# 로깅 설정
+logging:
+  level:
+    com.example.board: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE  # 쿼리 파라미터 로그
