@@ -1,14 +1,17 @@
-name: Java Build & Docker Push
+name: CI/CD Pipeline
 
 on:
   push:
     branches: [ "main" ] # main 브랜치에 코드가 올라오면 실행
 
 jobs:
-  build-and-push:
+  build-and-deploy:
     runs-on: ubuntu-latest # GitHub가 제공하는 컴퓨터 사용
 
     steps:
+      # ========================================
+      # CI: 빌드 & 도커 이미지 생성
+      # ========================================
       - name: 코드 가져오기
         uses: actions/checkout@v3
 
@@ -28,7 +31,35 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: 도커 이미지 빌드 및 푸시
-        # 본인_도커허브_아이디 부분을 꼭 수정하세요!
         run: |
           docker build -t ${{ secrets.DOCKER_USERNAME }}/kotlin-board:latest .
           docker push ${{ secrets.DOCKER_USERNAME }}/kotlin-board:latest
+
+      # ========================================
+      # CD: EC2 서버에 자동 배포
+      # ========================================
+      - name: EC2 서버에 SSH 접속 및 배포
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script: |
+            # 프로젝트 디렉토리로 이동
+            cd ~/kotlin-board-example
+
+            # Docker Hub에서 최신 이미지 가져오기
+            docker-compose -f docker-compose.prod.yml pull app
+
+            # 컨테이너 재시작 (다운타임 최소화)
+            docker-compose -f docker-compose.prod.yml up -d app
+
+            # 사용하지 않는 이전 이미지 정리
+            docker image prune -af
+
+            # 배포 완료 확인
+            echo "========================================="
+            echo "배포 완료: $(date)"
+            echo "========================================="
+            docker ps --filter "name=kotlin-board"
