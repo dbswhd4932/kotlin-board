@@ -175,4 +175,21 @@ class PostController(
         return ResponseEntity.ok(response)
     }
 
+    // ==================== CI/CD 배포 테스트용 ====================
+
+    @Operation(
+        summary = "[배포테스트] 버전 정보",
+        description = "현재 배포된 애플리케이션의 버전과 배포 시간을 확인합니다"
+    )
+    @GetMapping("/version")
+    fun getVersion(): ResponseEntity<Map<String, Any>> {
+        val version = mapOf(
+            "version" to "1.0.1",
+            "deployedAt" to java.time.LocalDateTime.now().toString(),
+            "status" to "CI/CD 자동 배포 성공!",
+            "message" to "이 엔드포인트가 보이면 자동 배포가 완료된 것입니다!"
+        )
+        return ResponseEntity.ok(version)
+    }
+
 }
