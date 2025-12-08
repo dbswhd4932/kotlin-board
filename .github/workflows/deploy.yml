@@ -9,9 +9,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ========================================
-      # CI: 빌드 & 도커 이미지 생성
-      # ========================================
+      # ... (앞부분 동일) ...
       - name: 코드 가져오기
         uses: actions/checkout@v3
 
@@ -21,12 +19,12 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # gradlew 실행 권한 부여 (필수)
       - name: gradlew 실행 권한 부여
         run: chmod +x gradlew
 
+      # ★ [수정 1] clean 추가: 이전 빌드 찌꺼기 완전 삭제
       - name: Gradle 빌드 (테스트 제외)
-        run: ./gradlew bootJar -x test
+        run: ./gradlew clean bootJar -x test
 
       - name: 도커 허브 로그인
         uses: docker/login-action@v2
@@ -34,15 +32,13 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      # ★ [수정 2] --no-cache 추가: 도커 이미지 캐시 사용 금지
       - name: 도커 이미지 빌드 및 푸시
         run: |
-          # latest 태그로 빌드 및 푸시 (가장 확실한 방법)
           docker build --no-cache -t ${{ secrets.DOCKER_USERNAME }}/kotlin-board:latest .
           docker push ${{ secrets.DOCKER_USERNAME }}/kotlin-board:latest
 
-      # ========================================
-      # CD: EC2 서버에 자동 배포
-      # ========================================
+      # ... (뒷부분 CD 단계는 아까 수정한 최신 버전 유지) ...
       - name: EC2 서버에 SSH 접속 및 배포
         uses: appleboy/ssh-action@master
         with:
@@ -56,19 +52,15 @@ jobs:
           script: |
             cd ~/kotlin-board-example
             
-            echo ">>> 1. 기존 컨테이너 중지 및 삭제"
-            sudo docker-compose -f docker-compose.prod.yml down
-            
-            echo ">>> 2. [중요] 기존 이미지 강제 삭제 (캐시 방지)"
-            # 이미지를 안 지우면 pull을 해도 예전 걸 쓸 때가 있습니다.
+            # 확실한 업데이트를 위해 이미지 강제 삭제 후 다시 받기
+            echo ">>> Cleaning up old images..."
             sudo docker rmi -f ${{ secrets.DOCKER_USERNAME }}/kotlin-board:latest || true
             
-            echo ">>> 3. 최신 이미지 다운로드"
-            sudo docker-compose -f docker-compose.prod.yml pull
+            echo ">>> Pulling new image..."
+            sudo docker-compose -f docker-compose.prod.yml pull app
             
-            echo ">>> 4. 컨테이너 실행"
-            sudo docker-compose --env-file .env -f docker-compose.prod.yml up -d
+            echo ">>> Restarting container..."
+            sudo docker-compose -f docker-compose.prod.yml up -d --force-recreate app
             
-            echo ">>> 5. 정리 및 확인"
-            sudo docker image prune -f
-            sudo docker ps
+            echo ">>> Pruning..."
+            sudo docker image prune -af
