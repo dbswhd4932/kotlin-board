@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # MySQL 데이터베이스
+  # 1. MySQL (기존 유지)
   mysql:
     image: mysql:8.0
     container_name: kotlin-board-mysql
@@ -23,13 +23,14 @@ services:
       timeout: 5s
       retries: 5
 
-  # Spring Boot 애플리케이션 (Dockerfile 기반 빌드)
+  # 2. Spring Boot App
   app:
     image: ${DOCKER_ID}/kotlin-board:latest
     container_name: kotlin-board-prod
     restart: unless-stopped
-    ports:
-      - "8080:8080"
+    # ★ 변경점: 외부로 8080을 직접 노출하지 않습니다. (Nginx를 통해서만 접속 가능)
+    expose:
+      - 8080
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
@@ -45,6 +46,33 @@ services:
       interval: 30s
       timeout: 3s
       retries: 3
+
+  # 3. Nginx (웹 서버 추가)
+  nginx:
+    image: nginx:1.25
+    container_name: kotlin-board-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"   # HTTP
+      - "443:443" # HTTPS
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d         # 설정 파일 공유
+      - ./data/certbot/conf:/etc/letsencrypt     # 인증서 저장소
+      - ./data/certbot/www:/var/www/certbot      # 인증용 챌린지 파일
+    depends_on:
+      - app
+    networks:
+      - board-network
+
+  # 4. Certbot (인증서 발급기 추가)
+  certbot:
+    image: certbot/certbot
+    container_name: kotlin-board-certbot
+    volumes:
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
+    networks:
+      - board-network
 
 volumes:
   mysql-data:
