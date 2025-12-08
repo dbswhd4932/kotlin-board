@@ -47,7 +47,7 @@ jobs:
           head -n 1 ~/.ssh/deploy_key.pem
 
       - name: EC2 서버에 SSH 접속 및 배포
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
