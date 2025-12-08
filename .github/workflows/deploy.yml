@@ -2,11 +2,11 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main" ] # main 브랜치에 코드가 올라오면 실행
+    branches: [ "main" ]
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest # GitHub가 제공하는 컴퓨터 사용
+    runs-on: ubuntu-latest
 
     steps:
       # ========================================
@@ -21,6 +21,10 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      # gradlew 실행 권한 부여 (필수)
+      - name: gradlew 실행 권한 부여
+        run: chmod +x gradlew
+
       - name: Gradle 빌드 (테스트 제외)
         run: ./gradlew bootJar -x test
 
@@ -32,20 +36,13 @@ jobs:
 
       - name: 도커 이미지 빌드 및 푸시
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/kotlin-board:latest .
+          # latest 태그로 빌드 및 푸시 (가장 확실한 방법)
+          docker build --no-cache -t ${{ secrets.DOCKER_USERNAME }}/kotlin-board:latest .
           docker push ${{ secrets.DOCKER_USERNAME }}/kotlin-board:latest
 
       # ========================================
       # CD: EC2 서버에 자동 배포
       # ========================================
-      - name: SSH 키 디코딩 및 설정
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key.pem
-          chmod 600 ~/.ssh/deploy_key.pem
-          # 키 형식 확인
-          head -n 1 ~/.ssh/deploy_key.pem
-
       - name: EC2 서버에 SSH 접속 및 배포
         uses: appleboy/ssh-action@master
         with:
@@ -57,30 +54,24 @@ jobs:
           command_timeout: 10m
           debug: true
           script: |
-            # 프로젝트 디렉토리로 이동
+            # 1. 프로젝트 폴더로 이동
             cd ~/kotlin-board-example
 
-            # 기존 app 컨테이너만 완전 중지 및 제거 (DB는 유지)
-            docker-compose -f docker-compose.prod.yml stop app
-            docker-compose -f docker-compose.prod.yml rm -f app
+            # 2. 최신 이미지 다운로드 (sudo + .env 명시)
+            echo ">>> Docker Pulling..."
+            sudo docker-compose --env-file .env -f docker-compose.prod.yml pull app
 
-            # 최신 이미지 다운로드
-            docker-compose -f docker-compose.prod.yml pull app
+            # 3. 기존 컨테이너 내리고 확실하게 삭제
+            echo ">>> Stopping old container..."
+            sudo docker-compose --env-file .env -f docker-compose.prod.yml down
 
-            # app 컨테이너만 새로 생성 및 시작
-            docker-compose -f docker-compose.prod.yml up -d app
+            # 4. 컨테이너 새로 실행 (강제 재생성 옵션)
+            echo ">>> Starting new container..."
+            sudo docker-compose --env-file .env -f docker-compose.prod.yml up -d --force-recreate app
 
-            # 사용하지 않는 이전 이미지 정리
-            docker image prune -af
+            # 5. 미사용 이미지 정리 (용량 확보)
+            sudo docker image prune -af
 
-            # 배포 완료 확인
-            echo "========================================="
-            echo "배포 완료: $(date)"
-            echo "========================================="
-            docker ps --filter "name=kotlin-board"
-
-            # 애플리케이션 로그 확인
-            echo "========================================="
-            echo "애플리케이션 시작 로그:"
-            echo "========================================="
-            docker logs --tail 30 kotlin-board-prod
+            # 6. 배포 확인 (로그 출력)
+            echo ">>> Deployment Check"
+            sudo docker ps --filter "name=kotlin-board"
