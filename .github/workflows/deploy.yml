@@ -32,11 +32,26 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # ★ [수정 2] --no-cache 추가: 도커 이미지 캐시 사용 금지
+      # ★ [수정 2] 캐시 무효화 빌드 인자와 함께 이미지 빌드
       - name: 도커 이미지 빌드 및 푸시
         run: |
-          docker build --no-cache -t ${{ secrets.DOCKER_USERNAME }}/kotlin-board:latest .
+          # 빌드 인자 생성 (타임스탬프와 커밋 해시로 캐시 무효화)
+          BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          GIT_COMMIT=$(git rev-parse --short HEAD)
+
+          echo "Building with BUILD_DATE=$BUILD_DATE, GIT_COMMIT=$GIT_COMMIT"
+
+          # 캐시 없이 빌드 (빌드 인자 전달)
+          docker build --no-cache \
+            --build-arg BUILD_DATE="$BUILD_DATE" \
+            --build-arg GIT_COMMIT="$GIT_COMMIT" \
+            -t ${{ secrets.DOCKER_USERNAME }}/kotlin-board:latest \
+            .
+
+          # Docker Hub에 푸시
           docker push ${{ secrets.DOCKER_USERNAME }}/kotlin-board:latest
+
+          echo "✅ Image pushed: ${{ secrets.DOCKER_USERNAME }}/kotlin-board:latest"
 
       # ... (뒷부분 CD 단계는 아까 수정한 최신 버전 유지) ...
       - name: EC2 서버에 SSH 접속 및 배포
@@ -51,16 +66,48 @@ jobs:
           debug: true
           script: |
             cd ~/kotlin-board-example
-            
-            # 확실한 업데이트를 위해 이미지 강제 삭제 후 다시 받기
-            echo ">>> Cleaning up old images..."
-            sudo docker rmi -f ${{ secrets.DOCKER_USERNAME }}/kotlin-board:latest || true
-            
-            echo ">>> Pulling new image..."
-            sudo docker-compose -f docker-compose.prod.yml pull app
-            
-            echo ">>> Restarting container..."
-            sudo docker-compose -f docker-compose.prod.yml up -d --force-recreate app
-            
-            echo ">>> Pruning..."
+
+            echo "========================================="
+            echo "배포 시작: $(date)"
+            echo "========================================="
+
+            # 1. 컨테이너 중지 및 제거
+            echo ">>> Stopping container..."
+            sudo docker-compose -f docker-compose.prod.yml stop app || true
+            sudo docker-compose -f docker-compose.prod.yml rm -f app || true
+
+            # 2. 모든 kotlin-board 이미지 완전 삭제 (ID 기준)
+            echo ">>> Removing ALL kotlin-board images..."
+            sudo docker images | grep kotlin-board | awk '{print $3}' | xargs -r sudo docker rmi -f || true
+
+            # 3. 최신 이미지 다운로드 (캐시 없이)
+            echo ">>> Pulling latest image..."
+            sudo docker-compose -f docker-compose.prod.yml pull --no-cache app
+
+            # 4. 새 컨테이너 시작
+            echo ">>> Starting new container..."
+            sudo docker-compose -f docker-compose.prod.yml up -d app
+
+            # 5. 대기 (Spring Boot 시작)
+            echo ">>> Waiting for Spring Boot to start..."
+            sleep 10
+
+            # 6. 배포 확인
+            echo "========================================="
+            echo "배포 완료: $(date)"
+            echo "========================================="
+            echo "Running containers:"
+            sudo docker ps --filter "name=kotlin-board"
+
+            echo ""
+            echo "Image info:"
+            sudo docker images | grep kotlin-board | head -1
+
+            echo ""
+            echo "Application logs (last 20 lines):"
+            sudo docker logs --tail 20 kotlin-board-prod
+
+            # 7. 사용하지 않는 이미지 정리
+            echo ""
+            echo ">>> Cleaning up dangling images..."
             sudo docker image prune -af

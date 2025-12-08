@@ -5,6 +5,11 @@
 # 1. 베이스 이미지 가져오기
 FROM gradle:8.5-jdk17 AS build
 
+# 캐시 무효화를 위한 빌드 인자 (매번 다른 값 전달)
+ARG BUILD_DATE
+ARG GIT_COMMIT
+RUN echo "Build Date: $BUILD_DATE, Commit: $GIT_COMMIT"
+
 # 2. 작업 폴더 만들기
 # 컨테이너 안에 /app 이라는 폴더를 만들고 거기로 이동합니다.
 WORKDIR /app
