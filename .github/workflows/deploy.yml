@@ -54,24 +54,21 @@ jobs:
           command_timeout: 10m
           debug: true
           script: |
-            # 1. 프로젝트 폴더로 이동
             cd ~/kotlin-board-example
-
-            # 2. 최신 이미지 다운로드 (sudo + .env 명시)
-            echo ">>> Docker Pulling..."
-            sudo docker-compose --env-file .env -f docker-compose.prod.yml pull app
-
-            # 3. 기존 컨테이너 내리고 확실하게 삭제
-            echo ">>> Stopping old container..."
-            sudo docker-compose --env-file .env -f docker-compose.prod.yml down
-
-            # 4. 컨테이너 새로 실행 (강제 재생성 옵션)
-            echo ">>> Starting new container..."
-            sudo docker-compose --env-file .env -f docker-compose.prod.yml up -d --force-recreate app
-
-            # 5. 미사용 이미지 정리 (용량 확보)
-            sudo docker image prune -af
-
-            # 6. 배포 확인 (로그 출력)
-            echo ">>> Deployment Check"
-            sudo docker ps --filter "name=kotlin-board"
+            
+            echo ">>> 1. 기존 컨테이너 중지 및 삭제"
+            sudo docker-compose -f docker-compose.prod.yml down
+            
+            echo ">>> 2. [중요] 기존 이미지 강제 삭제 (캐시 방지)"
+            # 이미지를 안 지우면 pull을 해도 예전 걸 쓸 때가 있습니다.
+            sudo docker rmi -f ${{ secrets.DOCKER_USERNAME }}/kotlin-board:latest || true
+            
+            echo ">>> 3. 최신 이미지 다운로드"
+            sudo docker-compose -f docker-compose.prod.yml pull
+            
+            echo ">>> 4. 컨테이너 실행"
+            sudo docker-compose --env-file .env -f docker-compose.prod.yml up -d
+            
+            echo ">>> 5. 정리 및 확인"
+            sudo docker image prune -f
+            sudo docker ps
