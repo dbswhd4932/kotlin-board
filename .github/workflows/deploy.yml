@@ -38,8 +38,16 @@ jobs:
       # ========================================
       # CD: EC2 서버에 자동 배포
       # ========================================
+      - name: SSH 키 디코딩 및 설정
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key.pem
+          chmod 600 ~/.ssh/deploy_key.pem
+          # 키 형식 확인
+          head -n 1 ~/.ssh/deploy_key.pem
+
       - name: EC2 서버에 SSH 접속 및 배포
-        uses: appleboy/ssh-action@v1.0.0
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
