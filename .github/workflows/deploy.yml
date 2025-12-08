@@ -60,14 +60,15 @@ jobs:
             # 프로젝트 디렉토리로 이동
             cd ~/kotlin-board-example
 
-            # 최신 이미지 다운로드 (app 서비스만)
+            # 기존 app 컨테이너만 완전 중지 및 제거 (DB는 유지)
+            docker-compose -f docker-compose.prod.yml stop app
+            docker-compose -f docker-compose.prod.yml rm -f app
+
+            # 최신 이미지 다운로드
             docker-compose -f docker-compose.prod.yml pull app
 
-            # DB는 건드리지 않고, app 컨테이너만 강제로 새로 만듬
-            sudo docker-compose -f docker-compose.prod.yml up -d --force-recreate app
-
-            # 컨테이너 재생성 및 시작 (--force-recreate)
-            docker-compose -f docker-compose.prod.yml up -d --force-recreate app
+            # app 컨테이너만 새로 생성 및 시작
+            docker-compose -f docker-compose.prod.yml up -d app
 
             # 사용하지 않는 이전 이미지 정리
             docker image prune -af
@@ -78,6 +79,8 @@ jobs:
             echo "========================================="
             docker ps --filter "name=kotlin-board"
 
-            # 로그 확인 (잘 떴는지 확인용)
-            echo "Logs:"
-            sudo docker logs --tail 20 kotlin-board-prod
+            # 애플리케이션 로그 확인
+            echo "========================================="
+            echo "애플리케이션 시작 로그:"
+            echo "========================================="
+            docker logs --tail 30 kotlin-board-prod
