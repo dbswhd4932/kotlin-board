@@ -65,10 +65,21 @@ jobs:
           command_timeout: 10m
           debug: true
           script: |
-            cd ~/kotlin-board-example
+            # 프로젝트 디렉토리로 이동 (디렉토리 확인 후 이동)
+            if [ -d ~/kotlin-board ]; then
+              cd ~/kotlin-board
+              echo "Working directory: ~/kotlin-board"
+            elif [ -d ~/kotlin-board-example ]; then
+              cd ~/kotlin-board-example
+              echo "Working directory: ~/kotlin-board-example"
+            else
+              echo "ERROR: Project directory not found!"
+              exit 1
+            fi
 
             echo "========================================="
             echo "배포 시작: $(date)"
+            echo "현재 디렉토리: $(pwd)"
             echo "========================================="
 
             # 1. 컨테이너 중지 및 제거
