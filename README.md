@@ -1,444 +1,293 @@
-# Java to Kotlin 리팩토링 실습 프로젝트
+# Kotlin Board API
 
-Java 개발자가 직접 Kotlin으로 변환하면서 배우는 게시판 애플리케이션입니다.
+Spring Boot와 Kotlin을 활용한 게시판 REST API 프로젝트입니다. Coroutines를 활용한 비동기 처리와 GitHub Actions를 통한 자동 배포를 지원합니다.
 
-## 🎯 프로젝트 목적
+## 🎯 프로젝트 특징
 
-**Java로 작성된 게시판 코드를 직접 Kotlin으로 리팩토링하면서 Kotlin 문법을 익히세요!**
-
-## 📚 학습 방법
-
-1. **Java 코드 분석**: 먼저 Java 코드를 읽고 이해하기
-2. **Kotlin으로 변환**: CONVERSION_GUIDE.md를 참고하며 직접 변환
-3. **실행 및 테스트**: 변환한 코드가 정상 동작하는지 확인
-4. **비교 학습**: Java와 Kotlin 코드를 비교하며 차이점 학습
+- ✅ **Kotlin 완전 변환**: Java에서 Kotlin으로 100% 리팩토링 완료
+- ✅ **Coroutines 비동기 처리**: suspend 함수와 async/await를 활용한 성능 최적화
+- ✅ **CI/CD 자동 배포**: GitHub Actions → Docker Hub → AWS EC2 자동 배포
+- ✅ **QueryDSL 동적 쿼리**: 타입 안전한 동적 쿼리 작성
+- ✅ **API 문서화**: Swagger/OpenAPI 자동 생성
 
 ## 🛠 기술 스택
 
-- **언어**: Java 17 (현재) → Kotlin (변환 목표)
-- **프레임워크**: Spring Boot 3.2.0, Spring Data JPA
-- **데이터베이스**: H2 (인메모리)
-- **빌드 도구**: Gradle (Kotlin DSL)
+### Backend
+- **Kotlin** 2.0.21
+- **Spring Boot** 3.2.0
+- **Spring Data JPA** + **QueryDSL** 5.0.0
+- **Coroutines** 1.7.3 (비동기 처리)
 
-## 📁 현재 프로젝트 구조 (Java)
+### Database
+- **H2** (개발 환경)
+- **MySQL** 8.0 (운영 환경)
 
-```
-kotlin-board-example/
-├── src/
-│   ├── main/
-│   │   ├── java/                               👈 Java 소스 (변환 대상)
-│   │   │   └── com/example/board/
-│   │   │       ├── BoardApplication.java
-│   │   │       ├── entity/
-│   │   │       │   ├── Post.java
-│   │   │       │   └── Comment.java
-│   │   │       ├── dto/
-│   │   │       │   ├── PostDto.java
-│   │   │       │   └── CommentDto.java
-│   │   │       ├── repository/
-│   │   │       │   ├── PostRepository.java
-│   │   │       │   └── CommentRepository.java
-│   │   │       ├── service/
-│   │   │       │   ├── PostService.java
-│   │   │       │   └── CommentService.java
-│   │   │       └── controller/
-│   │   │           ├── PostController.java
-│   │   │           ├── CommentController.java
-│   │   │           └── GlobalExceptionHandler.java
-│   │   ├── kotlin/                             👈 여기에 Kotlin 코드 작성!
-│   │   │   └── (비어있음 - 직접 작성할 공간)
-│   │   └── resources/
-│   │       └── application.yml
-│   └── test/
-│       └── java/
-└── build.gradle.kts
-```
+### DevOps
+- **Docker** + **Docker Compose**
+- **GitHub Actions** (CI/CD)
+- **AWS EC2** (배포)
+- **Nginx** + **Certbot** (리버스 프록시, HTTPS)
 
-## 🚀 변환 목표 구조 (Kotlin)
+## 📁 프로젝트 구조
 
 ```
 kotlin-board-example/
+├── .github/
+│   └── workflows/
+│       └── deploy.yml              # CI/CD 파이프라인
 ├── src/
-│   ├── main/
-│   │   ├── kotlin/                             👈 Kotlin 코드 (작성 후)
-│   │   │   └── com/example/board/
-│   │   │       ├── BoardApplication.kt
-│   │   │       ├── entity/
-│   │   │       │   ├── Post.kt
-│   │   │       │   └── Comment.kt
-│   │   │       └── ...
-│   │   └── resources/
-│   │       └── application.yml
+│   └── main/
+│       ├── kotlin/                 # Kotlin 소스 코드
+│       │   └── com/example/board/
+│       │       ├── entity/         # JPA 엔티티
+│       │       ├── dto/            # 요청/응답 DTO
+│       │       ├── repository/     # JPA + QueryDSL
+│       │       ├── service/        # 비즈니스 로직 (Coroutines)
+│       │       ├── controller/     # REST API
+│       │       └── config/         # 설정 (Swagger)
+│       └── resources/
+│           ├── application.yml     # 공통 설정
+│           ├── application-dev.yml # 개발 환경 (H2)
+│           └── application-prod.yml # 운영 환경 (MySQL)
+├── Dockerfile                      # Multi-stage 빌드
+├── docker-compose.prod.yml         # 운영 환경 (MySQL + App + Nginx)
+└── build.gradle.kts               # Gradle 빌드 설정
 ```
 
-## Java vs Kotlin 주요 차이점
+## 🔑 핵심 Kotlin 기능
 
-### 1. 변수 선언
-
-**Java:**
-```java
-private final String name = "John";  // 불변
-private int age = 30;                 // 가변
-```
-
-**Kotlin:**
+### 1. Data Class (간결한 DTO)
 ```kotlin
-val name = "John"  // 불변 (final)
-var age = 30       // 가변
-```
-
-### 2. Null Safety
-
-**Java:**
-```java
-String name = null;  // NPE 위험
-if (name != null) {
-    System.out.println(name.length());
-}
-```
-
-**Kotlin:**
-```kotlin
-val name: String? = null  // nullable 명시
-println(name?.length)     // Safe call (?.)
-val length = name?.length ?: 0  // Elvis 연산자 (?:)
-```
-
-### 3. 데이터 클래스
-
-**Java:**
-```java
-public class User {
-    private Long id;
-    private String name;
-
-    // constructor, getter, setter, equals, hashCode, toString 필요
-}
-```
-
-**Kotlin:**
-```kotlin
-data class User(
+// Java: 수십 줄의 boilerplate 코드 필요
+// Kotlin: 단 3줄
+data class PostResponse(
     val id: Long,
-    val name: String
-)
-// equals, hashCode, toString, copy 자동 생성
+    val title: String,
+    val content: String,
+    val author: String
+) // equals, hashCode, toString, copy 자동 생성
 ```
 
-### 4. 생성자 주입
-
-**Java:**
-```java
-@Service
-public class PostService {
-    private final PostRepository postRepository;
-
-    public PostService(PostRepository postRepository) {
-        this.postRepository = postRepository;
-    }
-}
-```
-
-**Kotlin:**
+### 2. Null Safety (NPE 방지)
 ```kotlin
-@Service
-class PostService(
-    private val postRepository: PostRepository
-)
-// 생성자 파라미터에서 바로 프로퍼티 선언
-```
+// Nullable 타입 명시
+val post: Post? = repository.findByIdOrNull(id)
 
-### 5. 컬렉션 변환
+// Safe call & Elvis operator
+val title = post?.title ?: "제목 없음"
 
-**Java:**
-```java
-List<PostResponse> posts = postList.stream()
-    .map(PostResponse::from)
-    .collect(Collectors.toList());
-```
-
-**Kotlin:**
-```kotlin
-val posts = postList.map { PostResponse.from(it) }
-// 더 간결한 표현
-```
-
-### 6. 스코프 함수
-
-**Kotlin의 강력한 기능:**
-
-```kotlin
-// apply: 객체 초기화
-val post = Post().apply {
-    title = "제목"
-    content = "내용"
-}
-
-// let: null 체크 후 실행
+// let으로 null 체크
 post?.let {
     println(it.title)
 }
-
-// also: 객체를 사용하고 반환
-val savedPost = postRepository.save(post).also {
-    logger.info("Saved post: ${it.id}")
-}
 ```
 
-### 7. 확장 함수
-
-**Kotlin의 독특한 기능:**
-
+### 3. 생성자 주입 간소화
 ```kotlin
-// String에 새로운 메서드 추가
-fun String.isEmail(): Boolean {
-    return this.contains("@")
+@Service
+class PostService(
+    private val postRepository: PostRepository,
+    private val commentRepository: CommentRepository
+) {
+    // 생성자와 필드 선언을 한 번에!
+}
+```
+
+### 4. 컬렉션 함수형 프로그래밍
+```kotlin
+// Stream API 없이 간결하게
+val posts = postList
+    .filter { it.published }
+    .map { PostResponse.from(it) }
+    .sortedByDescending { it.createdAt }
+```
+
+### 5. Coroutines 비동기 처리
+```kotlin
+// 동기 방식 (순차 실행)
+fun getPost(id: Long): PostDetailResponse {
+    val post = postRepository.findById(id)      // 1초
+    val comments = commentRepository.find(id)   // 1초
+    val likes = likeRepository.count(id)        // 1초
+    // 총 3초 소요
 }
 
-val email = "test@example.com"
-println(email.isEmail())  // true
+// 비동기 방식 (병렬 실행)
+suspend fun getPost(id: Long): PostDetailResponse = coroutineScope {
+    val postDeferred = async { postRepository.findById(id) }
+    val commentsDeferred = async { commentRepository.find(id) }
+    val likesDeferred = async { likeRepository.count(id) }
+
+    PostDetailResponse(
+        postDeferred.await(),
+        commentsDeferred.await(),
+        likesDeferred.await()
+    )
+    // 총 1초 소요 (병렬 실행으로 3배 빠름!)
+}
 ```
 
-## API 엔드포인트
+### 6. 확장 함수 (기존 클래스에 메서드 추가)
+```kotlin
+// PageRequest DTO를 Pageable로 변환하는 확장 함수
+fun PostDto.PageRequest.toPageable(): Pageable {
+    val sort = Sort.by(
+        if (direction == ASCENDING) Sort.Direction.ASC
+        else Sort.Direction.DESC,
+        sortBy
+    )
+    return PageRequest.of(page, size, sort)
+}
 
-### 게시글 API
-
-| Method | URL | 설명 |
-|--------|-----|------|
-| GET | /api/posts | 게시글 목록 조회 (페이징) |
-| GET | /api/posts/{id} | 게시글 상세 조회 |
-| GET | /api/posts/search?keyword={keyword} | 게시글 검색 |
-| POST | /api/posts | 게시글 생성 |
-| PUT | /api/posts/{id} | 게시글 수정 |
-| DELETE | /api/posts/{id} | 게시글 삭제 |
-
-### 댓글 API
-
-| Method | URL | 설명 |
-|--------|-----|------|
-| GET | /api/posts/{postId}/comments | 댓글 목록 조회 |
-| POST | /api/posts/{postId}/comments | 댓글 생성 |
-| PUT | /api/posts/{postId}/comments/{commentId} | 댓글 수정 |
-| DELETE | /api/posts/{postId}/comments/{commentId} | 댓글 삭제 |
-
-## 실행 방법
-
-### 1. 프로젝트 빌드
-
-```bash
-cd kotlin-board-example
-./gradlew build
+// 사용
+val pageable = request.toPageable()
 ```
 
-### 2. 애플리케이션 실행
+## 📡 API 엔드포인트
 
+### 게시글 API (`/api/posts/kt`)
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| GET | `/` | 게시글 목록 (페이징, 정렬) |
+| GET | `/{id}` | 게시글 상세 (댓글 포함) |
+| GET | `/search?keyword=...` | 게시글 검색 (제목+내용) |
+| POST | `/` | 게시글 생성 |
+| PUT | `/{id}` | 게시글 수정 |
+| DELETE | `/{id}` | 게시글 삭제 |
+| GET | `/{id}/sync` | **동기 방식 조회** (성능 비교용) |
+| GET | `/{id}/async` | **비동기 방식 조회** (Coroutines) |
+| GET | `/version` | **배포 버전 확인** (CI/CD 테스트용) |
+
+### 댓글 API (`/api/comments/kt`)
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| GET | `/post/{postId}` | 특정 게시글의 댓글 목록 |
+| POST | `/` | 댓글 생성 |
+| PUT | `/{id}` | 댓글 수정 |
+| DELETE | `/{id}` | 댓글 삭제 |
+
+### 좋아요 API (`/api/post-likes/kt`)
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| POST | `/` | 좋아요 추가 |
+| DELETE | `/{id}` | 좋아요 취소 |
+| GET | `/post/{postId}` | 게시글의 좋아요 수 |
+
+### API 문서
+- **Swagger UI**: `http://localhost:8080/swagger-ui/index.html`
+- **Health Check**: `http://localhost:8080/actuator/health`
+
+## 🚀 빠른 시작
+
+### 로컬 실행 (개발 환경)
 ```bash
-./gradlew bootRun
-```
-
-### 3. H2 Console 접속
-
-- URL: http://localhost:8080/h2-console
-- JDBC URL: `jdbc:h2:mem:boarddb`
-- Username: `sa`
-- Password: (빈칸)
-
-## API 테스트 예제
-
-### 게시글 생성
-
-```bash
-curl -X POST http://localhost:8080/api/posts \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "첫 번째 게시글",
-    "content": "게시글 내용입니다.",
-    "author": "홍길동"
-  }'
-```
-
-### 게시글 목록 조회
-
-```bash
-curl http://localhost:8080/api/posts?page=0&size=10
-```
-
-### 게시글 상세 조회
-
-```bash
-curl http://localhost:8080/api/posts/1
-```
-
-### 댓글 작성
-
-```bash
-curl -X POST http://localhost:8080/api/posts/1/comments \
-  -H "Content-Type: application/json" \
-  -d '{
-    "content": "좋은 글이네요!",
-    "author": "김철수"
-  }'
-```
-
-## 📖 학습 문서
-
-### 필수 문서 (순서대로 읽기)
-
-1. **README.md** (현재 문서)
-   - 프로젝트 전체 개요 및 실행 방법
-
-2. **CONVERSION_GUIDE.md** ⭐ 가장 중요!
-   - Java → Kotlin 변환 단계별 가이드
-   - 각 파일별 변환 체크리스트
-   - 자주 하는 실수 모음
-
-3. **KOTLIN_GUIDE.md**
-   - Java vs Kotlin 문법 상세 비교
-   - 스코프 함수, 확장 함수 등 심화 내용
-
-4. **API_EXAMPLES.md**
-   - API 테스트 curl 명령어 모음
-   - 전체 시나리오 테스트 스크립트
-
-5. **QUICK_START.md**
-   - 5분 안에 시작하는 빠른 가이드
-
-## 🎓 학습 포인트
-
-이 프로젝트를 통해 배울 수 있는 Kotlin 핵심 개념:
-
-### 기본 문법
-- ✅ `val` vs `var` (불변 vs 가변)
-- ✅ Null Safety (`?`, `?.`, `?:`, `!!`)
-- ✅ 타입 추론
-- ✅ 문자열 보간 (`$name`)
-
-### 객체지향
-- ✅ **Data Class**: getter/setter/equals 자동 생성
-- ✅ **생성자 프로퍼티**: 생성자에서 바로 필드 선언
-- ✅ **Companion Object**: static 메서드 대체
-
-### 함수형 프로그래밍
-- ✅ **컬렉션 함수**: `map`, `filter`, `find` 등
-- ✅ **스코프 함수**: `let`, `apply`, `also`, `run`
-- ✅ **확장 함수**: 기존 클래스에 메서드 추가
-
-### Spring Boot와 통합
-- ✅ JPA Entity with data class
-- ✅ Repository 인터페이스
-- ✅ Service 생성자 주입
-- ✅ Controller REST API
-
-## 🚀 시작하기
-
-### 1. 현재 Java 코드 실행해보기
-
-```bash
-cd kotlin-board-example
-
-# 빌드
+# 1. 빌드
 ./gradlew build
 
-# 실행
-./gradlew bootRun
+# 2. 실행 (H2 DB 사용)
+./gradlew bootRun --args='--spring.profiles.active=dev'
+
+# 3. API 테스트
+curl http://localhost:8080/api/posts/kt
 ```
 
-### 2. API 테스트
+### Docker Compose 실행
+```bash
+# 개발 환경 (H2)
+docker-compose -f docker-compose.dev.yml up
 
+# 운영 환경 (MySQL + Nginx)
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+### API 테스트 예제
 ```bash
 # 게시글 생성
-curl -X POST http://localhost:8080/api/posts \
+curl -X POST http://localhost:8080/api/posts/kt \
   -H "Content-Type: application/json" \
-  -d '{"title":"첫 게시글","content":"내용","author":"홍길동"}'
+  -d '{
+    "title": "Kotlin은 최고!",
+    "content": "Coroutines로 비동기 처리가 쉬워요",
+    "author": "개발자"
+  }'
 
-# 게시글 목록 조회
-curl http://localhost:8080/api/posts
+# 게시글 목록 조회 (페이징)
+curl "http://localhost:8080/api/posts/kt?page=0&size=10&sortBy=createdAt&direction=DESCENDING"
+
+# 게시글 검색
+curl "http://localhost:8080/api/posts/kt/search?keyword=Kotlin"
+
+# 성능 비교: 동기 vs 비동기
+curl http://localhost:8080/api/posts/kt/1/sync   # 동기 방식
+curl http://localhost:8080/api/posts/kt/1/async  # 비동기 방식 (더 빠름!)
 ```
 
-### 3. Kotlin으로 변환 시작
+## 🔄 CI/CD 자동 배포
 
-**추천 순서:**
+### 배포 파이프라인
+```
+코드 Push (main 브랜치)
+    ↓
+GitHub Actions 트리거
+    ↓
+┌─────────────────────────────┐
+│  CI (빌드 & 도커화)          │
+│  1. Gradle 빌드              │
+│  2. JAR 파일 생성             │
+│  3. Docker 이미지 빌드        │
+│  4. Docker Hub 푸시           │
+└─────────────────────────────┘
+    ↓
+┌─────────────────────────────┐
+│  CD (배포)                   │
+│  1. EC2 SSH 접속             │
+│  2. 이미지 Pull               │
+│  3. 컨테이너 재시작           │
+│  4. 헬스체크                  │
+└─────────────────────────────┘
+    ↓
+✅ 자동 배포 완료!
+```
 
-1. **Entity 변환** (Post.java → Post.kt)
-   - 가장 간단하고 기본이 되는 클래스
-   - data class 사용법 익히기
-
-2. **DTO 변환** (PostDto.java → PostDto.kt)
-   - companion object 학습
-   - validation 어노테이션 처리
-
-3. **Repository 변환**
-   - Optional → nullable 변환
-   - 거의 Java와 동일
-
-4. **Service 변환** ⭐ 중요!
-   - 생성자 주입 간소화
-   - Elvis 연산자 활용
-   - 컬렉션 함수 사용
-
-5. **Controller 변환**
-   - fun 키워드
-   - 파라미터 타입 변환
-
-6. **Application 변환**
-   - main 함수 클래스 밖으로
-
-### 4. 빌드 및 테스트
-
+### GitHub Secrets 설정 (필수)
 ```bash
-# Kotlin으로 변환한 후
-./gradlew clean build
-./gradlew bootRun
-
-# API 테스트로 동작 확인
-curl http://localhost:8080/api/posts
+DOCKER_USERNAME      # Docker Hub 사용자명
+DOCKER_PASSWORD      # Docker Hub 액세스 토큰
+EC2_HOST            # EC2 퍼블릭 IP
+EC2_USERNAME        # SSH 사용자 (ec2-user 또는 ubuntu)
+EC2_SSH_KEY         # EC2 SSH 프라이빗 키 (.pem 파일 내용)
 ```
 
-## 💡 변환 팁
+### 배포 확인
+```bash
+# 배포 버전 확인 API
+curl http://YOUR_EC2_IP/api/posts/kt/version
 
-### IntelliJ 자동 변환 활용
+# 응답 예시
+{
+  "version": "1.0.1",
+  "deployedAt": "2025-12-09T12:30:00",
+  "status": "CI/CD 자동 배포 성공!",
+  "message": "이 엔드포인트가 보이면 자동 배포가 완료된 것입니다!"
+}
+```
 
-1. Java 파일 내용 복사
-2. Kotlin 파일 생성 후 붙여넣기
-3. IntelliJ가 자동으로 Kotlin 코드로 변환 제안
-4. 변환된 코드를 리뷰하고 개선
+### 주요 특징
+- ✅ **캐시 무효화**: 빌드 인자(타임스탬프 + 커밋 해시)로 이미지 강제 갱신
+- ✅ **무중단 배포**: Docker Compose의 컨테이너 재시작
+- ✅ **자동 헬스체크**: Spring Boot Actuator 활용
+- ✅ **Multi-stage 빌드**: 경량 Docker 이미지 생성
 
-### 한 파일씩 변환
-
-- 전체를 한번에 변환하지 말고 하나씩
-- 각 파일 변환 후 빌드 확인
-- 점진적으로 변환하면 오류 찾기 쉬움
-
-### Java와 Kotlin 혼용 가능
-
-- 일부만 Kotlin으로 변환해도 OK
-- Java와 Kotlin은 100% 호환
-- 원하는 만큼만 변환하며 학습 가능
-
-## 📊 학습 진행도 체크
-
-- [ ] Java 코드 읽고 이해하기
-- [ ] CONVERSION_GUIDE.md 읽기
-- [ ] Entity 변환 (Post, Comment)
-- [ ] DTO 변환
-- [ ] Repository 변환
-- [ ] Service 변환
-- [ ] Controller 변환
-- [ ] Application 변환
-- [ ] 전체 빌드 성공
-- [ ] API 테스트 통과
-
-## 🔗 추가 학습 자료
-
-- [Kotlin 공식 문서](https://kotlinlang.org/docs/home.html)
-- [Kotlin Playground](https://play.kotlinlang.org/) - 온라인 실습
-- [Spring Boot with Kotlin](https://spring.io/guides/tutorials/spring-boot-kotlin/)
-- [Kotlin for Java Developers (Coursera)](https://www.coursera.org/learn/kotlin-for-java-developers)
-
-## 📝 라이센스
-
-MIT License
+상세 가이드: `CICD_SETUP.md`, `DOCKER_CICD.md` 참고
 
 ---
 
-**Happy Kotlin Learning! 🎉**
+## 📚 참고 문서
+
+- **CLAUDE.md** - 전체 프로젝트 상세 가이드
+- **KOTLIN_GUIDE.md** - Kotlin 학습 자료
+- **CICD_SETUP.md** - CI/CD 설정 가이드
+- **DOCKER_CICD.md** - Docker 사용법
+- **API_EXAMPLES.md** - API 사용 예제
+- **TESTING_GUIDE.md** - 테스트 가이드
+

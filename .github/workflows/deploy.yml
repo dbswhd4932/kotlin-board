@@ -41,7 +41,8 @@ jobs:
 
           echo "Building with BUILD_DATE=$BUILD_DATE, GIT_COMMIT=$GIT_COMMIT"
 
-          # 캐시 없이 빌드 (빌드 인자 전달)
+          # 캐시 없이 빌드 (빌드 인자 전달) 
+          # docker build . 명령어에서 Dockerfile 을 자동으로 찾아서 실행
           docker build --no-cache \
             --build-arg BUILD_DATE="$BUILD_DATE" \
             --build-arg GIT_COMMIT="$GIT_COMMIT" \
